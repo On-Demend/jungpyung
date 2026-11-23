@@ -273,7 +273,7 @@
       const r2 = seededRandom(tick * 251 + 23);
       const r3 = seededRandom(tick * 389 + 37);
 
-      if (r1 < 0.54) {
+      if (r1 < 0.44) {
         if (r2 < 0.15) {
           const drop = Math.floor(r3 * 131) + 170;
           return { delta: -drop, type: '폭락' };
