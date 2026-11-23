@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>정민이 평균 (정평) 실시간 현황</title>
+  <style>
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background-color: #f0f2f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      color: #111;
+    }
+    .card {
+      background: #ffffff;
+      padding: 2.5rem 2rem;
+      border-radius: 24px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+      max-width: 520px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      font-size: 1.5rem;
+      margin: 0 0 0.5rem 0;
+      color: #222;
+      font-weight: 700;
+    }
+    .date-info {
+      font-size: 1.05rem;
+      color: #555;
+      margin-bottom: 1.8rem;
+    }
+    .date-info strong {
+      color: #111;
+      font-size: 1.15rem;
+    }
+    .score-box {
+      background: #fff1f0;
+      border: 2px solid #ffa39e;
+      border-radius: 20px;
+      padding: 2.2rem 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .score-label {
+      font-size: 1.05rem;
+      color: #cf1322;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+    }
+    .score-value {
+      font-size: 4.5rem;
+      font-weight: 900;
+      color: #cf1322;
+      margin: 0;
+      line-height: 1.1;
+      letter-spacing: -2px;
+      word-break: keep-all;
+    }
+    .today-drop {
+      display: inline-block;
+      margin-top: 0.8rem;
+      padding: 4px 12px;
+      background: #ffccc7;
+      color: #a8071a;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .chart-box {
+      background: #ffffff;
+      border: 1px solid #e9ecef;
+      border-radius: 16px;
+      padding: 1.2rem 1rem 0.8rem 1rem;
+      margin-bottom: 1.5rem;
+      text-align: left;
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.6rem;
+      padding: 0 0.4rem;
+    }
+    .chart-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #333;
+    }
+    .chart-tooltip {
+      font-size: 0.82rem;
+      color: #cf1322;
+      font-weight: 600;
+      min-height: 1.2em;
+    }
+    svg {
+      width: 100%;
+      height: 180px;
+      display: block;
+      overflow: visible;
+    }
+    .history {
+      text-align: left;
+      background: #f8f9fa;
+      padding: 1.2rem;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      max-height: 180px;
+      overflow-y: auto;
+      border: 1px solid #e9ecef;
+    }
+    .history-title {
+      font-weight: 700;
+      margin-bottom: 0.6rem;
+      color: #333;
+      position: sticky;
+      top: 0;
+      background: #f8f9fa;
+      padding-bottom: 4px;
+    }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px dashed #dee2e6;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .drop {
+      color: #d9363e;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h1>정평 현황</h1>
+  <div class="date-info" id="dateInfo">계산 중...</div>
+
+  <div class="score-box">
+    <div class="score-label">현재 정평</div>
+    <p class="score-value" id="currentScore">-</p>
+    <div class="today-drop" id="todayDrop">오늘 하락폭: -</div>
+  </div>
+
+  <div class="chart-box">
+    <div class="chart-header">
+      <span class="chart-title">누적 추이 그래프</span>
+      <span class="chart-tooltip" id="chartTooltip">그래프에 마우스를 올려보세요</span>
+    </div>
+    <svg id="trendChart" viewBox="0 0 460 180"></svg>
+  </div>
+
+  <div class="history" id="historyContainer">
+    <div class="history-title">일자별 하락 내역 (3월 2일 ~ 현재)</div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const INITIAL_SCORE = 50;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const today = new Date(currentYear, now.getMonth(), now.getDate());
+    let startDate = new Date(currentYear, 2, 2);
+
+    if (today < startDate) {
+      startDate = new Date(currentYear - 1, 2, 2);
+    }
+
+    const diffTime = today - startDate;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    function getDeterministicDrop(day) {
+      const seed = Math.sin(day * 9999) * 10000;
+      const rand = seed - Math.floor(seed);
+      return Math.floor(rand * 10) + 2;
+    }
+
+    let currentScore = INITIAL_SCORE;
+    let lastDrop = 0;
+    const records = [{ day: 1, score: INITIAL_SCORE, drop: 0 }];
+
+    let historyHTML = `
+      <div class="history-item">
+        <span><strong>1일째</strong> (3월 2일 시작)</span>
+        <span><strong>${INITIAL_SCORE}</strong></span>
+      </div>
+    `;
+
+    for (let d = 2; d <= diffDays; d++) {
+      const drop = getDeterministicDrop(d);
+      currentScore -= drop;
+      lastDrop = drop;
+      records.push({ day: d, score: currentScore, drop: drop });
+
+      historyHTML += `
+        <div class="history-item">
+          <span>${d}일째 <span class="drop">(-${drop})</span></span>
+          <span><strong>${currentScore.toLocaleString()}</strong></span>
+        </div>
+      `;
+    }
+
+    const formattedDate = `${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일`;
+    document.getElementById('dateInfo').innerHTML = 
+      `3월 2일부터 <strong>${diffDays}일째</strong> (${formattedDate})`;
+    
+    document.getElementById('currentScore').textContent = currentScore.toLocaleString();
+    document.getElementById('todayDrop').textContent = 
+      diffDays === 1 ? '시작일 (하락 없음)' : `오늘 하락폭: -${lastDrop}`;
+    
+    document.getElementById('historyList').innerHTML = historyHTML;
+    
+    const historyContainer = document.getElementById('historyContainer');
+    historyContainer.scrollTop = historyContainer.scrollHeight;
+
+    const svg = document.getElementById('trendChart');
+    const tooltip = document.getElementById('chartTooltip');
+    const width = 460;
+    const height = 180;
+    const padLeft = 48;
+    const padRight = 16;
+    const padTop = 16;
+    const padBottom = 26;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+
+    const maxScore = Math.max(...records.map(r => r.score));
+    const minScore = Math.min(...records.map(r => r.score));
+    const range = maxScore - minScore || 1;
+
+    const getX = (index) => {
+      if (records.length === 1) return padLeft + plotW / 2;
+      return padLeft + (index / (records.length - 1)) * plotW;
+    };
+    const getY = (score) => {
+      return padTop + ((maxScore - score) / range) * plotH;
+    };
+
+    const points = records.map((r, i) => `${getX(i).toFixed(1)},${getY(r.score).toFixed(1)}`).join(' ');
+    const areaPoints = `${padLeft},${padTop + plotH} ${points} ${getX(records.length - 1).toFixed(1)},${padTop + plotH}`;
+
+    const zeroY = getY(0);
+    const zeroLine = (zeroY >= padTop && zeroY <= padTop + plotH)
+      ? `<line x1="${padLeft}" y1="${zeroY}" x2="${width - padRight}" y2="${zeroY}" stroke="#adb5bd" stroke-dasharray="3,3" stroke-width="1" />
+         <text x="${padLeft - 6}" y="${zeroY + 3}" font-size="10" fill="#868e96" text-anchor="end">0</text>`
+      : '';
+
+    const lastX = getX(records.length - 1);
+    const lastY = getY(currentScore);
+
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ff4d4f" stop-opacity="0.22" />
+          <stop offset="100%" stop-color="#ff4d4f" stop-opacity="0.0" />
+        </linearGradient>
+      </defs>
+      <line x1="${padLeft}" y1="${padTop}" x2="${width - padRight}" y2="${padTop}" stroke="#f1f3f5" stroke-width="1" />
+      <line x1="${padLeft}" y1="${padTop + plotH}" x2="${width - padRight}" y2="${padTop + plotH}" stroke="#dee2e6" stroke-width="1" />
+      ${zeroLine}
+      <text x="${padLeft - 6}" y="${padTop + 4}" font-size="10" fill="#868e96" text-anchor="end">${maxScore.toLocaleString()}</text>
+      <text x="${padLeft - 6}" y="${padTop + plotH + 3}" font-size="10" fill="#868e96" text-anchor="end">${minScore.toLocaleString()}</text>
+      <text x="${padLeft}" y="${height - 6}" font-size="10" fill="#868e96" text-anchor="start">1일째</text>
+      <text x="${width - padRight}" y="${height - 6}" font-size="10" fill="#868e96" text-anchor="end">${diffDays}일째</text>
+      <polygon points="${areaPoints}" fill="url(#areaGrad)" />
+      <polyline fill="none" stroke="#cf1322" stroke-width="2.5" stroke-linejoin="round" points="${points}" />
+      <line id="hoverLine" x1="0" y1="${padTop}" x2="0" y2="${padTop + plotH}" stroke="#cf1322" stroke-width="1" stroke-dasharray="2,2" visibility="hidden" />
+      <circle id="hoverDot" cx="${lastX}" cy="${lastY}" r="4.5" fill="#cf1322" stroke="#ffffff" stroke-width="1.5" />
+      <rect id="hoverZone" x="${padLeft}" y="${padTop}" width="${plotW}" height="${plotH}" fill="transparent" style="cursor: crosshair;" />
+    `;
+
+    const hoverZone = document.getElementById('hoverZone');
+    const hoverDot = document.getElementById('hoverDot');
+    const hoverLine = document.getElementById('hoverLine');
+
+    function updateHover(clientX) {
+      const rect = svg.getBoundingClientRect();
+      const svgX = ((clientX - rect.left) / rect.width) * width;
+      const ratio = Math.max(0, Math.min(1, (svgX - padLeft) / plotW));
+      const idx = Math.round(ratio * (records.length - 1));
+      const rec = records[idx];
+      const cx = getX(idx);
+      const cy = getY(rec.score);
+
+      hoverDot.setAttribute('cx', cx);
+      hoverDot.setAttribute('cy', cy);
+      hoverLine.setAttribute('x1', cx);
+      hoverLine.setAttribute('x2', cx);
+      hoverLine.setAttribute('visibility', 'visible');
+
+      const dropText = rec.day === 1 ? '시작일' : `-${rec.drop}`;
+      tooltip.textContent = `${rec.day}일째: ${rec.score.toLocaleString()} (${dropText})`;
+    }
+
+    function resetHover() {
+      hoverDot.setAttribute('cx', lastX);
+      hoverDot.setAttribute('cy', lastY);
+      hoverLine.setAttribute('visibility', 'hidden');
+      tooltip.textContent = '그래프에 마우스를 올려보세요';
+    }
+
+    hoverZone.addEventListener('mousemove', (e) => updateHover(e.clientX));
+    hoverZone.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) updateHover(e.touches[0].clientX);
+    }, { passive: true });
+    hoverZone.addEventListener('mouseleave', resetHover);
+    hoverZone.addEventListener('touchend', resetHover);
+  })();
+</script>
+
+</body>
+</html>
