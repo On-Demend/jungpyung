@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>동평 실시간</title>
+  <style>
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background-color: #090d0b;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+      color: #f8fafc;
+    }
+    .terminal {
+      background: #131c18;
+      padding: 2rem;
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55);
+      max-width: 560px;
+      width: 100%;
+      border: 1px solid #24362e;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1.2rem;
+      border-bottom: 1px solid #24362e;
+      padding-bottom: 1rem;
+    }
+    .stock-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .stock-title h1 {
+      font-size: 1.35rem;
+      margin: 0;
+      font-weight: 800;
+      color: #ffffff;
+    }
+    .ticker {
+      background: #24362e;
+      color: #fbbf24;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 6px;
+    }
+    .date-badge {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      text-align: right;
+    }
+    .price-section {
+      margin-bottom: 1.5rem;
+    }
+    .current-price {
+      font-size: 4rem;
+      font-weight: 900;
+      margin: 0;
+      line-height: 1.1;
+      letter-spacing: -2px;
+    }
+    .price-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 0.6rem;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .event-badge {
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+    .up { color: #fbbf24; }
+    .down { color: #a855f7; }
+    .flat { color: #94a3b8; }
+    .bg-up { background: rgba(251, 191, 36, 0.16); color: #fcd34d; border: 1px solid rgba(251, 191, 36, 0.4); }
+    .bg-down { background: rgba(168, 85, 247, 0.16); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
+    .bg-jackpot { background: #f59e0b; color: #090d0b; }
+    .bg-crash { background: #7e22ce; color: #ffffff; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      background: #0b110e;
+      padding: 0.9rem;
+      border-radius: 14px;
+      margin-bottom: 1.5rem;
+      border: 1px solid #24362e;
+    }
+    .stat-item {
+      text-align: center;
+    }
+    .stat-label {
+      font-size: 0.75rem;
+      color: #6b8579;
+      margin-bottom: 3px;
+    }
+    .stat-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+    .chart-box {
+      background: #0b110e;
+      border: 1px solid #24362e;
+      border-radius: 16px;
+      padding: 1rem 0.8rem 0.6rem 0.8rem;
+      margin-bottom: 1.5rem;
+    }
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      padding: 0 0.5rem;
+    }
+    .chart-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #8ca398;
+    }
+    .chart-tooltip {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+    svg {
+      width: 100%;
+      height: 190px;
+      display: block;
+      overflow: visible;
+    }
+    .ledger {
+      background: #0b110e;
+      border: 1px solid #24362e;
+      border-radius: 14px;
+      padding: 1rem;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.88rem;
+    }
+    .ledger-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: #6b8579;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1a2822;
+      margin-bottom: 6px;
+      position: sticky;
+      top: 0;
+      background: #0b110e;
+    }
+    .ledger-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px dashed #1a2822;
+    }
+    .ledger-row:last-child {
+      border-bottom: none;
+    }
+    .tag-mini {
+      font-size: 0.72rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      font-weight: 700;
+    }
+    .time-sub {
+      font-size: 0.75rem;
+      color: #6b8579;
+      margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="terminal">
+  <div class="header">
+    <div>
+      <div class="stock-title">
+        <h1>동평 현황</h1>
+        <span class="ticker">DONGDAQ</span>
+      </div>
+      <div style="font-size: 0.8rem; color: #6b8579; margin-top: 4px;">기준: 3월 2일 00:00 (12시간 주기 갱신)</div>
+    </div>
+    <div class="date-badge" id="dateBadge">-</div>
+  </div>
+
+  <div class="price-section">
+    <p class="current-price" id="currentPrice">-</p>
+    <div class="price-meta" id="priceMeta"></div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-item">
+      <div class="stat-label">상장가 (1회차)</div>
+      <div class="stat-val">50</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">역대 최고가</div>
+      <div class="stat-val up" id="highPrice">-</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">역대 최저가</div>
+      <div class="stat-val down" id="lowPrice">-</div>
+    </div>
+  </div>
+
+  <div class="chart-box">
+    <div class="chart-header">
+      <span class="chart-title">12시간봉 차트 (전체 추이)</span>
+      <span class="chart-tooltip" id="chartTooltip">차트에 마우스를 올려 시세 확인</span>
+    </div>
+    <svg id="stockChart" viewBox="0 0 500 190"></svg>
+  </div>
+
+  <div class="ledger" id="ledgerContainer">
+    <div class="ledger-header">
+      <span>회차 (일시) / 변동유형</span>
+      <span>등락폭 / 현재가</span>
+    </div>
+    <div id="ledgerList"></div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const INITIAL_PRICE = 50;
+    const INTERVAL_MS = 12 * 60 * 60 * 1000;
+    const SEED_OFFSET = 7777;
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    let startDate = new Date(currentYear, 2, 2, 0, 0, 0, 0);
+
+    if (now < startDate) {
+      startDate = new Date(currentYear - 1, 2, 2, 0, 0, 0, 0);
+    }
+
+    const diffTime = now - startDate;
+    const totalTicks = Math.floor(diffTime / INTERVAL_MS) + 1;
+
+    function formatTickLabel(tickIndex) {
+      const tickDate = new Date(startDate.getTime() + (tickIndex - 1) * INTERVAL_MS);
+      const m = tickDate.getMonth() + 1;
+      const d = tickDate.getDate();
+      const period = tickDate.getHours() < 12 ? '오전' : '오후';
+      return `${m}/${d} ${period}`;
+    }
+
+    function seededRandom(seed) {
+      const x = Math.sin((seed + SEED_OFFSET) * 41.3127 + 19.847) * 58291.7319;
+      return x - Math.floor(x);
+    }
+
+    function simulateTick(tick) {
+      const r1 = seededRandom(tick * 137 + 11);
+      const r2 = seededRandom(tick * 251 + 23);
+      const r3 = seededRandom(tick * 389 + 37);
+
+      if (r1 < 0.37) {
+        if (r2 < 0.15) {
+          const drop = Math.floor(r3 * 131) + 170;
+          return { delta: -drop, type: '폭락' };
+        } else {
+          const drop = Math.floor(r3 * 6) + 2;
+          return { delta: -drop, type: '하락' };
+        }
+      } else {
+        if (r2 < 0.10) {
+          const surge = Math.floor(r3 * 151) + 100;
+          return { delta: surge, type: '급등' };
+        } else {
+          const gain = Math.floor(r3 * 8) + 8;
+          return { delta: gain, type: '상승' };
+        }
+      }
+    }
+
+    let price = INITIAL_PRICE;
+    const records = [{ tick: 1, label: formatTickLabel(1), price: INITIAL_PRICE, delta: 0, type: '상장' }];
+
+    for (let t = 2; t <= totalTicks; t++) {
+      const sim = simulateTick(t);
+      price += sim.delta;
+      records.push({ tick: t, label: formatTickLabel(t), price: price, delta: sim.delta, type: sim.type });
+    }
+
+    const latest = records[records.length - 1];
+    const highPrice = Math.max(...records.map(r => r.price));
+    const lowPrice = Math.min(...records.map(r => r.price));
+
+    const currentPeriod = now.getHours() < 12 ? '오전(00~12시)' : '오후(12~24시)';
+    const formattedDate = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+    document.getElementById('dateBadge').innerHTML = `누적 <strong>${totalTicks}회차</strong> (${currentPeriod})<br>${formattedDate}`;
+
+    const priceEl = document.getElementById('currentPrice');
+    priceEl.textContent = latest.price.toLocaleString();
+    priceEl.className = 'current-price ' + (latest.delta > 0 ? 'up' : latest.delta < 0 ? 'down' : 'flat');
+
+    let badgeClass = 'flat';
+    if (latest.type === '급등') badgeClass = 'bg-jackpot';
+    else if (latest.type === '상승') badgeClass = 'bg-up';
+    else if (latest.type === '폭락') badgeClass = 'bg-crash';
+    else if (latest.type === '하락') badgeClass = 'bg-down';
+
+    const deltaSign = latest.delta > 0 ? `▲ +${latest.delta.toLocaleString()}` : latest.delta < 0 ? `▼ ${latest.delta.toLocaleString()}` : '0';
+    const deltaColor = latest.delta > 0 ? 'up' : latest.delta < 0 ? 'down' : 'flat';
+
+    document.getElementById('priceMeta').innerHTML = `
+      <span class="${deltaColor}">직전대비 ${deltaSign}</span>
+      <span class="event-badge ${badgeClass}">${latest.type}</span>
+    `;
+
+    document.getElementById('highPrice').textContent = highPrice.toLocaleString();
+    document.getElementById('lowPrice').textContent = lowPrice.toLocaleString();
+
+    let ledgerHTML = '';
+    for (let i = records.length - 1; i >= 0; i--) {
+      const r = records[i];
+      const rowColor = r.delta > 0 ? 'up' : r.delta < 0 ? 'down' : 'flat';
+      const sign = r.delta > 0 ? `+${r.delta}` : `${r.delta}`;
+      let tagStyle = '';
+      if (r.type === '급등') tagStyle = 'background:#f59e0b;color:#090d0b;';
+      else if (r.type === '폭락') tagStyle = 'background:#7e22ce;color:#fff;';
+      else if (r.type === '상승') tagStyle = 'background:rgba(251,191,36,0.16);color:#fcd34d;';
+      else if (r.type === '하락') tagStyle = 'background:rgba(168,85,247,0.16);color:#c084fc;';
+      else tagStyle = 'background:#24362e;color:#8ca398;';
+
+      ledgerHTML += `
+        <div class="ledger-row">
+          <div>
+            <strong>${r.tick}회차</strong>
+            <span class="time-sub">(${r.label})</span>
+            <span class="tag-mini" style="${tagStyle}">${r.type}</span>
+          </div>
+          <div>
+            <span class="${rowColor}" style="margin-right:10px; font-weight:700;">${r.tick === 1 ? '-' : sign}</span>
+            <strong style="color:#f8fafc;">${r.price.toLocaleString()}</strong>
+          </div>
+        </div>
+      `;
+    }
+    document.getElementById('ledgerList').innerHTML = ledgerHTML;
+
+    const svg = document.getElementById('stockChart');
+    const tooltip = document.getElementById('chartTooltip');
+    const width = 500;
+    const height = 190;
+    const padLeft = 46;
+    const padRight = 14;
+    const padTop = 16;
+    const padBottom = 24;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+
+    const range = highPrice - lowPrice || 1;
+    const getX = (idx) => records.length === 1 ? padLeft + plotW / 2 : padLeft + (idx / (records.length - 1)) * plotW;
+    const getY = (val) => padTop + ((highPrice - val) / range) * plotH;
+
+    const lineColor = latest.price >= INITIAL_PRICE ? '#fbbf24' : '#a855f7';
+    const points = records.map((r, i) => `${getX(i).toFixed(1)},${getY(r.price).toFixed(1)}`).join(' ');
+    const areaPoints = `${padLeft},${padTop + plotH} ${points} ${getX(records.length - 1).toFixed(1)},${padTop + plotH}`;
+
+    const baseY = getY(INITIAL_PRICE);
+    const baseLine = (baseY >= padTop && baseY <= padTop + plotH)
+      ? `<line x1="${padLeft}" y1="${baseY}" x2="${width - padRight}" y2="${baseY}" stroke="#385246" stroke-dasharray="3,3" stroke-width="1" />
+         <text x="${padLeft - 6}" y="${baseY + 3}" font-size="10" fill="#8ca398" text-anchor="end">50</text>`
+      : '';
+
+    const lastX = getX(records.length - 1);
+    const lastY = getY(latest.price);
+
+    svg.innerHTML = `
+      <defs>
+        <linearGradient id="stockGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.28" />
+          <stop offset="100%" stop-color="${lineColor}" stop-opacity="0.0" />
+        </linearGradient>
+      </defs>
+      <line x1="${padLeft}" y1="${padTop}" x2="${width - padRight}" y2="${padTop}" stroke="#1a2822" stroke-width="1" />
+      <line x1="${padLeft}" y1="${padTop + plotH}" x2="${width - padRight}" y2="${padTop + plotH}" stroke="#24362e" stroke-width="1" />
+      ${baseLine}
+      <text x="${padLeft - 6}" y="${padTop + 4}" font-size="10" fill="#6b8579" text-anchor="end">${highPrice.toLocaleString()}</text>
+      <text x="${padLeft - 6}" y="${padTop + plotH + 3}" font-size="10" fill="#6b8579" text-anchor="end">${lowPrice.toLocaleString()}</text>
+      <text x="${padLeft}" y="${height - 5}" font-size="10" fill="#6b8579" text-anchor="start">1회차 (3/2 오전)</text>
+      <text x="${width - padRight}" y="${height - 5}" font-size="10" fill="#6b8579" text-anchor="end">${totalTicks}회차 (${latest.label})</text>
+      <polygon points="${areaPoints}" fill="url(#stockGrad)" />
+      <polyline fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" points="${points}" />
+      <line id="hoverLine" x1="0" y1="${padTop}" x2="0" y2="${padTop + plotH}" stroke="#8ca398" stroke-width="1" stroke-dasharray="2,2" visibility="hidden" />
+      <circle id="hoverDot" cx="${lastX}" cy="${lastY}" r="4.5" fill="${lineColor}" stroke="#0b110e" stroke-width="2" />
+      <rect id="hoverZone" x="${padLeft}" y="${padTop}" width="${plotW}" height="${plotH}" fill="transparent" style="cursor: crosshair;" />
+    `;
+
+    const hoverZone = document.getElementById('hoverZone');
+    const hoverDot = document.getElementById('hoverDot');
+    const hoverLine = document.getElementById('hoverLine');
+
+    function updateHover(clientX) {
+      const rect = svg.getBoundingClientRect();
+      const svgX = ((clientX - rect.left) / rect.width) * width;
+      const ratio = Math.max(0, Math.min(1, (svgX - padLeft) / plotW));
+      const idx = Math.round(ratio * (records.length - 1));
+      const rec = records[idx];
+      const cx = getX(idx);
+      const cy = getY(rec.price);
+
+      hoverDot.setAttribute('cx', cx);
+      hoverDot.setAttribute('cy', cy);
+      hoverLine.setAttribute('x1', cx);
+      hoverLine.setAttribute('x2', cx);
+      hoverLine.setAttribute('visibility', 'visible');
+
+      const dText = rec.tick === 1 ? '상장' : `${rec.type} ${rec.delta > 0 ? '+' + rec.delta : rec.delta}`;
+      tooltip.textContent = `${rec.tick}회차 (${rec.label}): ${rec.price.toLocaleString()} (${dText})`;
+    }
+
+    function resetHover() {
+      hoverDot.setAttribute('cx', lastX);
+      hoverDot.setAttribute('cy', lastY);
+      hoverLine.setAttribute('visibility', 'hidden');
+      tooltip.textContent = '차트에 마우스를 올려 시세 확인';
+    }
+
+    hoverZone.addEventListener('mousemove', (e) => updateHover(e.clientX));
+    hoverZone.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) updateHover(e.touches[0].clientX);
+    }, { passive: true });
+    hoverZone.addEventListener('mouseleave', resetHover);
+    hoverZone.addEventListener('touchend', resetHover);
+  })();
+</script>
+
+</body>
+</html>
