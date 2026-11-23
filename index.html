@@ -180,6 +180,11 @@
       margin-left: 6px;
       font-weight: 700;
     }
+    .time-sub {
+      font-size: 0.75rem;
+      color: #64748b;
+      margin-left: 4px;
+    }
   </style>
 </head>
 <body>
@@ -188,10 +193,10 @@
   <div class="header">
     <div>
       <div class="stock-title">
-        <h1>정평 현황</h1>
+        <h1>정평</h1>
         <span class="ticker">KOSPI · JUNG</span>
       </div>
-      <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">기준일: 3월 2일 (상장가 50pt)</div>
+      <div style="font-size: 0.8rem; color: #64748b; margin-top: 4px;">기준: 3월 2일 00:00 (12시간 주기 갱신)</div>
     </div>
     <div class="date-badge" id="dateBadge">-</div>
   </div>
@@ -203,7 +208,7 @@
 
   <div class="stats-grid">
     <div class="stat-item">
-      <div class="stat-label">상장가 (1일차)</div>
+      <div class="stat-label">상장가 (1회차)</div>
       <div class="stat-val">50</div>
     </div>
     <div class="stat-item">
@@ -218,7 +223,7 @@
 
   <div class="chart-box">
     <div class="chart-header">
-      <span class="chart-title">일봉 차트 (전체 추이)</span>
+      <span class="chart-title">12시간봉 차트 (전체 추이)</span>
       <span class="chart-tooltip" id="chartTooltip">차트에 마우스를 올려 시세 확인</span>
     </div>
     <svg id="stockChart" viewBox="0 0 500 190"></svg>
@@ -226,8 +231,8 @@
 
   <div class="ledger" id="ledgerContainer">
     <div class="ledger-header">
-      <span>거래일차 / 변동유형</span>
-      <span>등락폭 / 종가</span>
+      <span>회차 (일시) / 변동유형</span>
+      <span>등락폭 / 현재가</span>
     </div>
     <div id="ledgerList"></div>
   </div>
@@ -236,28 +241,36 @@
 <script>
   (function() {
     const INITIAL_PRICE = 50;
+    const INTERVAL_MS = 12 * 60 * 60 * 1000;
 
     const now = new Date();
     const currentYear = now.getFullYear();
-    const today = new Date(currentYear, now.getMonth(), now.getDate());
-    let startDate = new Date(currentYear, 2, 2);
+    let startDate = new Date(currentYear, 2, 2, 0, 0, 0, 0);
 
-    if (today < startDate) {
-      startDate = new Date(currentYear - 1, 2, 2);
+    if (now < startDate) {
+      startDate = new Date(currentYear - 1, 2, 2, 0, 0, 0, 0);
     }
 
-    const diffTime = today - startDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const diffTime = now - startDate;
+    const totalTicks = Math.floor(diffTime / INTERVAL_MS) + 1;
+
+    function formatTickLabel(tickIndex) {
+      const tickDate = new Date(startDate.getTime() + (tickIndex - 1) * INTERVAL_MS);
+      const m = tickDate.getMonth() + 1;
+      const d = tickDate.getDate();
+      const period = tickDate.getHours() < 12 ? '오전' : '오후';
+      return `${m}/${d} ${period}`;
+    }
 
     function seededRandom(seed) {
       const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
       return x - Math.floor(x);
     }
 
-    function simulateDay(day) {
-      const r1 = seededRandom(day * 101 + 1);
-      const r2 = seededRandom(day * 202 + 2);
-      const r3 = seededRandom(day * 303 + 3);
+    function simulateTick(tick) {
+      const r1 = seededRandom(tick * 101 + 1);
+      const r2 = seededRandom(tick * 202 + 2);
+      const r3 = seededRandom(tick * 303 + 3);
 
       if (r1 < 0.60) {
         if (r2 < 0.12) {
@@ -279,20 +292,21 @@
     }
 
     let price = INITIAL_PRICE;
-    const records = [{ day: 1, price: INITIAL_PRICE, delta: 0, type: '상장' }];
+    const records = [{ tick: 1, label: formatTickLabel(1), price: INITIAL_PRICE, delta: 0, type: '상장' }];
 
-    for (let d = 2; d <= diffDays; d++) {
-      const sim = simulateDay(d);
+    for (let t = 2; t <= totalTicks; t++) {
+      const sim = simulateTick(t);
       price += sim.delta;
-      records.push({ day: d, price: price, delta: sim.delta, type: sim.type });
+      records.push({ tick: t, label: formatTickLabel(t), price: price, delta: sim.delta, type: sim.type });
     }
 
     const latest = records[records.length - 1];
     const highPrice = Math.max(...records.map(r => r.price));
     const lowPrice = Math.min(...records.map(r => r.price));
 
-    const formattedDate = `${today.getFullYear()}.${String(today.getMonth() + 1).padStart(2, '0')}.${String(today.getDate()).padStart(2, '0')}`;
-    document.getElementById('dateBadge').innerHTML = `상장 <strong>${diffDays}일차</strong><br>${formattedDate}`;
+    const currentPeriod = now.getHours() < 12 ? '오전(00~12시)' : '오후(12~24시)';
+    const formattedDate = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`;
+    document.getElementById('dateBadge').innerHTML = `누적 <strong>${totalTicks}회차</strong> (${currentPeriod})<br>${formattedDate}`;
 
     const priceEl = document.getElementById('currentPrice');
     priceEl.textContent = latest.price.toLocaleString();
@@ -308,7 +322,7 @@
     const deltaColor = latest.delta > 0 ? 'up' : latest.delta < 0 ? 'down' : 'flat';
 
     document.getElementById('priceMeta').innerHTML = `
-      <span class="${deltaColor}">전일대비 ${deltaSign}</span>
+      <span class="${deltaColor}">직전대비 ${deltaSign}</span>
       <span class="event-badge ${badgeClass}">${latest.type}</span>
     `;
 
@@ -330,11 +344,12 @@
       ledgerHTML += `
         <div class="ledger-row">
           <div>
-            <strong>${r.day}일차</strong>
+            <strong>${r.tick}회차</strong>
+            <span class="time-sub">(${r.label})</span>
             <span class="tag-mini" style="${tagStyle}">${r.type}</span>
           </div>
           <div>
-            <span class="${rowColor}" style="margin-right:10px; font-weight:700;">${r.day === 1 ? '-' : sign}</span>
+            <span class="${rowColor}" style="margin-right:10px; font-weight:700;">${r.tick === 1 ? '-' : sign}</span>
             <strong style="color:#f8fafc;">${r.price.toLocaleString()}</strong>
           </div>
         </div>
@@ -382,10 +397,10 @@
       ${baseLine}
       <text x="${padLeft - 6}" y="${padTop + 4}" font-size="10" fill="#64748b" text-anchor="end">${highPrice.toLocaleString()}</text>
       <text x="${padLeft - 6}" y="${padTop + plotH + 3}" font-size="10" fill="#64748b" text-anchor="end">${lowPrice.toLocaleString()}</text>
-      <text x="${padLeft}" y="${height - 5}" font-size="10" fill="#64748b" text-anchor="start">1일차</text>
-      <text x="${width - padRight}" y="${height - 5}" font-size="10" fill="#64748b" text-anchor="end">${diffDays}일차</text>
+      <text x="${padLeft}" y="${height - 5}" font-size="10" fill="#64748b" text-anchor="start">1회차 (3/2 오전)</text>
+      <text x="${width - padRight}" y="${height - 5}" font-size="10" fill="#64748b" text-anchor="end">${totalTicks}회차 (${latest.label})</text>
       <polygon points="${areaPoints}" fill="url(#stockGrad)" />
-      <polyline fill="none" stroke="${lineColor}" stroke-width="2.2" stroke-linejoin="round" points="${points}" />
+      <polyline fill="none" stroke="${lineColor}" stroke-width="2" stroke-linejoin="round" points="${points}" />
       <line id="hoverLine" x1="0" y1="${padTop}" x2="0" y2="${padTop + plotH}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2,2" visibility="hidden" />
       <circle id="hoverDot" cx="${lastX}" cy="${lastY}" r="4.5" fill="${lineColor}" stroke="#0f172a" stroke-width="2" />
       <rect id="hoverZone" x="${padLeft}" y="${padTop}" width="${plotW}" height="${plotH}" fill="transparent" style="cursor: crosshair;" />
@@ -410,8 +425,8 @@
       hoverLine.setAttribute('x2', cx);
       hoverLine.setAttribute('visibility', 'visible');
 
-      const dText = rec.day === 1 ? '상장' : `${rec.type} ${rec.delta > 0 ? '+' + rec.delta : rec.delta}`;
-      tooltip.textContent = `${rec.day}일차: ${rec.price.toLocaleString()} (${dText})`;
+      const dText = rec.tick === 1 ? '상장' : `${rec.type} ${rec.delta > 0 ? '+' + rec.delta : rec.delta}`;
+      tooltip.textContent = `${rec.tick}회차 (${rec.label}): ${rec.price.toLocaleString()} (${dText})`;
     }
 
     function resetHover() {
